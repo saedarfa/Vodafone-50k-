@@ -63,18 +63,18 @@ BOLD = Style.BRIGHT
 
 CONFIG_FILE = "config.json"
 AUTH_URL = 'https://web.vodafone.com.eg/auth/realms/vf-realm/protocol/openid-connect/token'
-FAMILY_API_URL = "https://web.vodafone.com.eg/services/dxl/cg/customerGroupAPI/customerGroup"
+FAMILY_API_URL = "https://mobile.vodafone.com.eg/services/dxl/cg/customerGroupAPI/customerGroup"
 CLIENT_ID = 'my-vodafone-app'
 CLIENT_SECRET = 'a2ec6fff-0b7f-4aa4-a733-96ceae5c84c3'
 
 # --- إعدادات ثابتة ---
 TASK_ORDER = [2, 3, 5, 4, 1]  # إرسال دعوة, قبول, تغيير 40%, حذف, تغيير 10%
-DELAYS = {"2": 5, "3": 310, "5": 0, "4": 10, "1": 310}
+DELAYS = {"2": 10, "3": 310, "5": 0, "4": 10, "1": 310}
 SUBDOMAINS_CONFIG = {
-    "add_member": "web.vodafone.com.eg",
-    "quota_40": "mobile.vodafone.com.eg",
-    "remove_member": "web.vodafone.com.eg",
-    "quota_10": "mobile.vodafone.com.eg"
+    "add_member": "mobile.vodafone.com.eg",
+    "quota_40": "web.vodafone.com.eg",
+    "remove_member": "mobile.vodafone.com.eg",
+    "quota_10": "web.vodafone.com.eg"
 }
 SYNC_TASKS = [3, 5]  # قبول الدعوة وتغيير 40% متزامن
 RETRIES_ACCEPT = 3
@@ -108,15 +108,16 @@ def get_fresh_token(owner_number, password):
     headers = {
         "Accept": "application/json, text/plain, */*",
         "Connection": "keep-alive",
-        "x-agent-operatingsystem": "R.18d8015-3fd3e-3fd3d",
-        "clientId": CLIENT_ID,
-        "x-agent-device": "OP4F11L1",
-        "x-agent-version": "2024.10.1",
-        "x-agent-build": "562",
+        "x-dynatrace": "MT_3_17_998679495_45-0_a556db1b-4506-43f3-854a-1d2527767923_0_18957_273",
+        "x-agent-operatingsystem": "1630483957",
+        "clientId": "AnaVodafoneAndroid",
+        "x-agent-device": "RMX1911",
+        "x-agent-version": "2021.12.2",
+        "x-agent-build": "911",
         "Content-Type": "application/x-www-form-urlencoded",
-        "Host": "web.vodafone.com.eg",
+        "Host": "mobile.vodafone.com.eg",
         "Accept-Encoding": "gzip",
-        "User-Agent": "okhttp/4.9.3"
+        "User-Agent": "okhttp/4.9.1"
     }
     data = {
         "username": owner_number,
@@ -199,17 +200,66 @@ def create_headers(access_token_val, subdomain, user_agent, owner_number):
 def change_quota(access_token, owner_number, member_number, quota, user_agent, results_dict, result_key, subdomain):
     """تغيير حصة عضو."""
     url = FAMILY_API_URL
-    headers = create_headers(access_token, subdomain, user_agent, owner_number)
+    headers = {
+        
+  'User-Agent': "okhttp/4.11.0",
+  'Connection': "Keep-Alive",
+  'Accept': "application/json",
+  'Accept-Encoding': "gzip",
+  'Content-Type': "application/json",
+  "Authorization": f"Bearer {access_token}",
+  'api-version': "v2",
+  'x-agent-operatingsystem': "15",
+  'clientId': "AnaVodafoneAndroid",
+  'x-agent-device': "HONOR ALI-NX1",
+  'x-agent-version': "2024.11.2",
+  'x-agent-build': "944",
+  'msisdn': owner_number,
+  'Accept-Language': "ar",
+  'Content-Type': "application/json; charset=UTF-8"
+    }
     payload = {
-        "category": [{"listHierarchyId": "TemplateID", "value": "47"}],
-        "parts": {
-            "characteristicsValue": {"characteristicsValue": [{"characteristicName": "quotaDist1", "type": "percentage", "value": quota}]},
-            "member": [
-                {"id": [{"schemeName": "MSISDN", "value": owner_number}], "type": "Owner"},
-                {"id": [{"schemeName": "MSISDN", "value": member_number}], "type": "Member"}
-            ]
-        },
-        "type": "QuotaRedistribution"
+  "category": [
+    {
+      "listHierarchyId": "TemplateID",
+      "value": "47"
+    }
+  ],
+  "createdBy": {
+    "value": "MobileApp"
+  },
+  "parts": {
+    "characteristicsValue": {
+      "characteristicsValue": [
+        {
+          "characteristicName": "quotaDist1",
+          "type": "percentage",
+          "value": quota
+        }
+      ]
+    },
+    "member": [
+      {
+        "id": [
+          {
+            "schemeName": "MSISDN",
+            "value": owner_number
+          }
+        ],
+        "type": "Owner"
+      },
+      {
+        "id": [
+          {
+            "schemeName": "MSISDN",
+            "value": member_number
+          }
+        ],
+        "type": "Member"
+      }
+    ]
+  },
+  "type": "QuotaRedistribution"
     }
     print(f"{CYAN}  [🚀] إرسال طلب تغيير حصة {BOLD}{member_number}{RESET}{CYAN} إلى {BOLD}{quota}%{RESET}")
     try:
@@ -225,24 +275,29 @@ def change_quota(access_token, owner_number, member_number, quota, user_agent, r
 def add_family_member(access_token, owner_number, member_number, quota_value, user_agent, results_dict, result_key, subdomain, max_retries):
     """إضافة عضو جديد."""
     url = FAMILY_API_URL
-    headers = create_headers(access_token, subdomain, user_agent, owner_number)
-    payload = {
-        "name": "FlexFamily", "type": "SendInvitation", "category": [
-            {"value": "523", "listHierarchyId": "PackageID"}, {"value": "47", "listHierarchyId": "TemplateID"},
-            {"value": "523", "listHierarchyId": "TierID"}, {"value": "percentage", "listHierarchyId": "familybehavior"}
-        ], "parts": {
-            "member": [
-                {"id": [{"value": owner_number, "schemeName": "MSISDN"}], "type": "Owner"},
-                {"id": [{"value": member_number, "schemeName": "MSISDN"}], "type": "Member"}
-            ], "characteristicsValue": {
-                "characteristicsValue": [{"characteristicName": "quotaDist1", "value": str(quota_value), "type": "percentage"}]
-            }
-        }
+    headers = {
+        "Host": "mobile.vodafone.com.eg",
+        "x-dynatrace":"MT_3_13_2611661057_68-0_a556db1b-4506-43f3-854a-1d2527767923_0_77308_312",
+        "msisdn": owner_number,
+        "api-version":"v2",
+        "x-agent-operatingsystem":"1630483957",
+        "clientId":"AnaVodafoneAndroid",
+        "Authorization": f"Bearer {access_token}",
+        "x-agent-device":"RMX1911",
+        "Accept": "application/json",
+        "x-agent-version":"2022.2.1.2",
+        "x-agent-build":"911",
+        "Accept-Language":"ar",
+        "Content-Type":"application/json; charset=UTF-8",
+        "Connection":"Keep-Alive",
+        "Accept-Encoding":"gzip",
+        "User-Agent":"okhttp/4.9.1"
     }
+    payload = {"category": [{"listHierarchyId": "PackageID", "value": "523"}, {"listHierarchyId": "TemplateID", "value": "47"}, {"listHierarchyId": "TierID", "value": "523"}, {"listHierarchyId": "familybehavior", "value": "percentage"}], "name": "FlexFamily", "parts": {"characteristicsValue": {"characteristicsValue": [{"characteristicName": "quotaDist1", "type": "percentage", "value": str(quota_value),}]}, "member": [{"id": [{"schemeName": "MSISDN", "value":owner_number,}], "type": "Owner"}, {"id": [{"schemeName": "MSISDN", "value":member_number}], "type": "Member"}]}, "type": "SendInvitation"}
     for attempt in range(max_retries):
         print(f"{CYAN}  [🚀] إرسال طلب دعوة لـ {BOLD}{member_number}{RESET}{CYAN} بحصة {BOLD}{quota_value}% (محاولة {attempt + 1}/{max_retries}){RESET}")
         try:
-            response = session.post(url, data=json.dumps(payload), headers=headers, timeout=45)
+            response = session.patch(url, headers=headers, json=payload, timeout=45)
             results_dict[result_key] = {'status': response.status_code, 'text': response.text}
             status_color = SUCCESS_COLOR if response.status_code in [200, 201, 204] else ERROR_COLOR
             print(f"{status_color}  [📦] استجابة {member_number}: {BOLD}{response.status_code}{RESET}")
@@ -265,14 +320,51 @@ def accept_invitation_with_retries(owner_number, member_number, member_password,
         if not access_token:
             results_dict[result_key] = {'status': 'TOKEN_FAIL', 'text': 'فشل الحصول على التوكن.'}
             continue
-        headers = create_headers(access_token, subdomain, user_agent, member_number)
+        headers = {
+            "api_id": "APP",
+            "Authorization": f"Bearer {access_token}",
+            "api-version": "v2",
+            "x-agent-operatingsystem": "15",
+            "clientId": "AnaVodafoneAndroid",
+            "x-agent-device": "HONOR ALI-NX1",
+            "x-agent-version": "2024.11.2",
+            "x-agent-build": "944",
+            "msisdn": member_number,
+            "Accept": "application/json",
+            "Accept-Language": "ar",
+            "Content-Type": "application/json; charset=UTF-8",
+            "Connection": "Keep-Alive",
+            "Accept-Encoding": "gzip",
+            "User-Agent": "okhttp/4.11.0"
+        }
         data = {
-            "category": [{"listHierarchyId": "TemplateID", "value": "47"}],
+            "category": [
+                {
+                    "listHierarchyId": "TemplateID",
+                    "value": "47"
+                }
+            ],
             "name": "FlexFamily",
             "parts": {
                 "member": [
-                    {"id": [{"schemeName": "MSISDN", "value": owner_number}], "type": "Owner"},
-                    {"id": [{"schemeName": "MSISDN", "value": member_number}], "type": "Member"}
+                    {
+                        "id": [
+                            {
+                                "schemeName": "MSISDN",
+                                "value": owner_number
+                            }
+                        ],
+                        "type": "Owner"
+                    },
+                    {
+                        "id": [
+                            {
+                                "schemeName": "MSISDN",
+                                "value": member_number
+                            }
+                        ],
+                        "type": "Member"
+                    }
                 ]
             },
             "type": "AcceptInvitation"
@@ -295,27 +387,62 @@ def accept_invitation_with_retries(owner_number, member_number, member_password,
 def remove_flex_family_member(access_token, owner_number, member_number, user_agent, results_dict, result_key, subdomain, max_retries):
     """حذف عضو."""
     url = FAMILY_API_URL
-    headers = create_headers(access_token, subdomain, user_agent, owner_number)
+    headers = {
+        "x-dynatrace": "MT_3_17_917396936_5-0_a556db1b-4506-43f3-854a-1d2527767923_0_946_333",
+        "Authorization": f"Bearer {access_token}", 
+        "api-version": "v2",
+        "x-agent-operatingsystem": "15",
+        "clientId": "AnaVodafoneAndroid",
+        "x-agent-device": "HONOR ALI-NX1",
+        "x-agent-version": "2024.11.2",
+        "x-agent-build": "944",
+        "msisdn": owner_number,
+        "Accept": "application/json",
+        "Accept-Language": "ar",
+        "Content-Type": "application/json; charset=UTF-8",
+        "Host": "mobile.vodafone.com.eg",
+        "Connection": "Keep-Alive",
+        "Accept-Encoding": "gzip",
+        "User-Agent": "okhttp/4.11.0"
+    }
     payload = {
-        "name": "FlexFamily", "type": "FamilyRemoveMember",
-        "category": [{"value": "47", "listHierarchyId": "TemplateID"}],
+        "category": [
+            {
+                "listHierarchyId": "TemplateID",
+                "value": "47"
+            }
+        ],
+        "createdBy": {
+            "value": "MobileApp"
+        },
         "parts": {
-            "member": [
-                {"id": [{"value": owner_number, "schemeName": "MSISDN"}], "type": "Owner"},
-                {"id": [{"value": member_number, "schemeName": "MSISDN"}], "type": "Member"}
-            ],
             "characteristicsValue": {
                 "characteristicsValue": [
                     {"characteristicName": "Disconnect", "value": "0"},
                     {"characteristicName": "LastMemberDeletion", "value": "1"}
                 ]
-            }
-        }
+            },
+            "member": [
+                {
+                    "id": [
+                        {"schemeName": "MSISDN", "value": owner_number}
+                    ],
+                    "type": "Owner"
+                },
+                {
+                    "id": [
+                        {"schemeName": "MSISDN", "value": member_number}
+                    ],
+                    "type": "Member"
+                }
+            ]
+        },
+        "type": "FamilyRemoveMember"
     }
     for attempt in range(max_retries):
         print(f"{CYAN}  [🚀] إرسال طلب حذف لـ {BOLD}{member_number}{RESET} (محاولة {attempt + 1}/{max_retries}){RESET}")
         try:
-            response = session.patch(url, data=json.dumps(payload), headers=headers, timeout=30)
+            response = session.patch(url, headers=headers, json=payload, timeout=30)
             results_dict[result_key] = {'status': response.status_code, 'text': response.text}
             status_color = SUCCESS_COLOR if response.status_code in [200, 201] else ERROR_COLOR
             print(f"{status_color}  [📦] استجابة {member_number}: {BOLD}{response.status_code}{RESET}")
